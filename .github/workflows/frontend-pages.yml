@@ -38,6 +38,11 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+        env:
+          VITE_GOOGLE_SHEET_ID: ${{ secrets.VITE_GOOGLE_SHEET_ID || secrets.GOOGLE_SHEET_ID }}
+          VITE_GOOGLE_API_KEY: ${{ secrets.VITE_GOOGLE_API_KEY || secrets.GOOGLE_API_KEY }}
+          VITE_GOOGLE_OAUTH_TOKEN: ${{ secrets.VITE_GOOGLE_OAUTH_TOKEN }}
+          VITE_GOOGLE_SHEET_RANGE: ${{ vars.VITE_GOOGLE_SHEET_RANGE || 'Jobs!A:L' }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

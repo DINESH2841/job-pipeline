@@ -43,6 +43,7 @@ jobs:
           VITE_GOOGLE_API_KEY: ${{ secrets.VITE_GOOGLE_API_KEY || secrets.GOOGLE_API_KEY }}
           VITE_GOOGLE_OAUTH_TOKEN: ${{ secrets.VITE_GOOGLE_OAUTH_TOKEN }}
           VITE_GOOGLE_SHEET_RANGE: ${{ vars.VITE_GOOGLE_SHEET_RANGE || 'Jobs!A:L' }}
+          VITE_BACKEND_URL: ${{ vars.VITE_BACKEND_URL || secrets.VITE_BACKEND_URL || 'http://localhost:4000' }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

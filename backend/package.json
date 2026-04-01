@@ -1,0 +1,19 @@
+{
+  "name": "job-pipeline-backend",
+  "version": "1.0.0",
+  "description": "Automated job ingestion, filtering, scoring, storage, and email alert pipeline",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "axios": "^1.8.4",
+    "dotenv": "^16.4.7",
+    "googleapis": "^148.0.0",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.10.0",
+    "openai": "^4.86.2"
+  }
+}

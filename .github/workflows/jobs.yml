@@ -1,0 +1,41 @@
+name: Job Pipeline
+
+on:
+  schedule:
+    # 9:00 AM IST (03:30 UTC)
+    - cron: "30 3 * * *"
+    # 6:00 PM IST (12:30 UTC)
+    - cron: "30 12 * * *"
+  workflow_dispatch:
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install deps
+        working-directory: backend
+        run: npm install
+
+      - name: Run pipeline
+        working-directory: backend
+        run: node index.js
+        env:
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          APIFY_LINKEDIN_ACTOR: ${{ secrets.APIFY_LINKEDIN_ACTOR }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_BASE_URL: https://openrouter.ai/api/v1
+          OPENAI_MODEL: google/gemma-3-4b-it

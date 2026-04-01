@@ -1,5 +1,7 @@
 import axios from "axios";
 
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+
 const SHEET_ID = import.meta.env.VITE_GOOGLE_SHEET_ID;
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 const OAUTH_TOKEN = import.meta.env.VITE_GOOGLE_OAUTH_TOKEN || "";
@@ -168,6 +170,11 @@ export async function markJobAsApplied(job) {
   }
 
   return appendRange("History!A1", [[job.apply_link, "Applied", "", new Date().toISOString(), new Date().toISOString(), job.source || ""]]);
+}
+
+export async function runPipelineNow() {
+  const res = await axios.post(`${BACKEND_BASE_URL}/api/pipeline/run`);
+  return res.data;
 }
 
 export { STATUS_OPTIONS };

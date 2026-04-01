@@ -11,7 +11,7 @@ function StatCard({ label, value }) {
   );
 }
 
-export default function DashboardPage({ jobs, history, logs }) {
+export default function DashboardPage({ jobs, history, logs, onRunNow, runningPipeline }) {
   const today = new Date().toISOString().slice(0, 10);
 
   const stats = useMemo(() => {
@@ -33,6 +33,16 @@ export default function DashboardPage({ jobs, history, logs }) {
       <PageShell
         title="Dashboard"
         description="Live metrics from Jobs, History, and Logs sheets"
+        right={(
+          <button
+            type="button"
+            onClick={onRunNow}
+            disabled={runningPipeline}
+            className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            {runningPipeline ? "Running..." : "Run now"}
+          </button>
+        )}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Total Jobs" value={stats.totalJobs} />

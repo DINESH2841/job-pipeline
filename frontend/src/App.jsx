@@ -11,6 +11,7 @@ import {
   fetchLogs,
   fetchRawData,
   markJobAsApplied,
+  runPipelineNow,
   updateHistoryEntry
 } from "./services/sheetsApi";
 
@@ -24,6 +25,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [writing, setWriting] = useState(false);
   const [savingRow, setSavingRow] = useState(null);
+  const [runningPipeline, setRunningPipeline] = useState(false);
 
   async function loadAll() {
     setLoading(true);
@@ -82,6 +84,19 @@ export default function App() {
     }
   };
 
+  const onRunNow = async () => {
+    try {
+      setRunningPipeline(true);
+      setError("");
+      await runPipelineNow();
+      await loadAll();
+    } catch (err) {
+      setError(err.response?.data?.error || err.response?.data?.message || err.message || "Failed to run pipeline now.");
+    } finally {
+      setRunningPipeline(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900 lg:flex">
       <Sidebar active={activePage} onChange={setActivePage} />
@@ -100,7 +115,13 @@ export default function App() {
         ) : (
           <>
             {activePage === "dashboard" && (
-              <DashboardPage jobs={sortedJobs} history={sortedHistory} logs={sortedLogs} />
+              <DashboardPage
+                jobs={sortedJobs}
+                history={sortedHistory}
+                logs={sortedLogs}
+                onRunNow={onRunNow}
+                runningPipeline={runningPipeline}
+              />
             )}
             {activePage === "jobs" && (
               <JobsPage jobs={sortedJobs} onMarkApplied={onMarkApplied} writing={writing} />

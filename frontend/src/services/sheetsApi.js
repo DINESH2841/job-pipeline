@@ -4,14 +4,13 @@ const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:4
 
 const SHEET_ID = import.meta.env.VITE_GOOGLE_SHEET_ID;
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
-const OAUTH_TOKEN = import.meta.env.VITE_GOOGLE_OAUTH_TOKEN || "";
 
 const SHEETS_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
 const RANGES = {
   jobs: "Jobs!A:L",
   rawData: "RawData!A:H",
-  history: "History!A:F",
+  history: "History!A:I",
   logs: "Logs!A:F"
 };
 
@@ -28,13 +27,6 @@ const STATUS_OPTIONS = [
 function assertReadConfig() {
   if (!SHEET_ID || !API_KEY) {
     throw new Error("Missing VITE_GOOGLE_SHEET_ID or VITE_GOOGLE_API_KEY in frontend env.");
-  }
-}
-
-function assertWriteConfig() {
-  assertReadConfig();
-  if (!OAUTH_TOKEN) {
-    throw new Error("Missing VITE_GOOGLE_OAUTH_TOKEN for write operations.");
   }
 }
 
@@ -71,15 +63,32 @@ function mapRawData(values = []) {
 }
 
 function mapHistory(values = []) {
-  return values.slice(1).map((row, idx) => ({
-    rowIndex: idx + 2,
-    apply_link: row[0] || "",
-    status: row[1] || "New",
-    notes: row[2] || "",
-    applied_date: row[3] || "",
-    last_updated: row[4] || "",
-    source: row[5] || ""
-  }));
+  const headers = (values[0] || []).map((h) => String(h || "").trim().toLowerCase());
+  const isV2 = headers[0] === "job id" && headers[3] === "apply link";
+
+  return values.slice(1).map((row, idx) => {
+    if (isV2) {
+      return {
+        rowIndex: idx + 2,
+        apply_link: row[3] || "",
+        status: row[4] || "New",
+        notes: row[5] || "",
+        applied_date: row[6] || "",
+        last_updated: row[7] || "",
+        source: row[8] || ""
+      };
+    }
+
+    return {
+      rowIndex: idx + 2,
+      apply_link: row[0] || "",
+      status: row[1] || "New",
+      notes: row[2] || "",
+      applied_date: row[3] || "",
+      last_updated: row[4] || "",
+      source: row[5] || ""
+    };
+  });
 }
 
 function mapLogs(values = []) {
@@ -103,32 +112,25 @@ async function readRange(range) {
 }
 
 async function appendRange(range, values) {
-  assertWriteConfig();
-  const encodedRange = encodeURIComponent(range);
-  const url = `${SHEETS_BASE}/${SHEET_ID}/values/${encodedRange}:append`;
-  const res = await axios.post(
-    url,
-    { values },
-    {
-      params: { valueInputOption: "USER_ENTERED" },
-      headers: { Authorization: `Bearer ${OAUTH_TOKEN}` }
-    }
-  );
+  const res = await axios.post(`${BACKEND_BASE_URL}/api/history/mark-applied`, {
+    apply_link: values?.[0]?.[0] || "",
+    source: values?.[0]?.[5] || ""
+  });
   return res.data;
 }
 
 async function updateRange(range, values) {
-  assertWriteConfig();
-  const encodedRange = encodeURIComponent(range);
-  const url = `${SHEETS_BASE}/${SHEET_ID}/values/${encodedRange}`;
-  const res = await axios.put(
-    url,
-    { values },
-    {
-      params: { valueInputOption: "USER_ENTERED" },
-      headers: { Authorization: `Bearer ${OAUTH_TOKEN}` }
-    }
-  );
+  const rowMatch = String(range || "").match(/\d+/);
+  const rowIndex = rowMatch ? Number(rowMatch[0]) : null;
+  const row = values?.[0] || [];
+
+  const res = await axios.post(`${BACKEND_BASE_URL}/api/history/update`, {
+    rowIndex,
+    status: row[0] || "New",
+    notes: row[1] || "",
+    applied_date: row[2] || "",
+    source: row[4] || ""
+  });
   return res.data;
 }
 

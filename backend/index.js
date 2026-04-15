@@ -223,8 +223,9 @@ async function runPipeline() {
     }
     console.log(`[pipeline] history links appended: ${historyInserted}`);
 
+    let emailResult;
     try {
-      await sendJobAlertEmail(scored);
+      emailResult = await sendJobAlertEmail(scored);
     } catch (error) {
       await logEvent({
         run_id,
@@ -235,7 +236,17 @@ async function runPipeline() {
       });
       throw error;
     }
-    await logEvent({ run_id, level: "info", step: "email", message: "Email sent" });
+    await logEvent({
+      run_id,
+      level: "info",
+      step: "email",
+      message: emailResult?.sent ? "Email sent" : "Email skipped",
+      data: {
+        sent: Boolean(emailResult?.sent),
+        reason: emailResult?.reason || "unknown",
+        selectedJobs: scored.length
+      }
+    });
 
     const finishedAt = Date.now();
     console.log(`[pipeline] completed in ${((finishedAt - startedAt) / 1000).toFixed(2)}s`);

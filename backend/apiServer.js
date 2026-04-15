@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { spawn } from "node:child_process";
+import { markHistoryLinkApplied, updateHistoryEntryFromDashboard } from "./services/sheets.js";
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -73,6 +74,34 @@ app.post("/api/pipeline/run", async (_req, res) => {
     });
   } finally {
     isRunning = false;
+  }
+});
+
+app.post("/api/history/mark-applied", async (req, res) => {
+  try {
+    const result = await markHistoryLinkApplied(req.body || {});
+    return res.json(result);
+  } catch (error) {
+    return res.status(400).json({
+      ok: false,
+      error: {
+        message: error.message || "Failed to mark job as applied"
+      }
+    });
+  }
+});
+
+app.post("/api/history/update", async (req, res) => {
+  try {
+    const result = await updateHistoryEntryFromDashboard(req.body || {});
+    return res.json(result);
+  } catch (error) {
+    return res.status(400).json({
+      ok: false,
+      error: {
+        message: error.message || "Failed to update history row"
+      }
+    });
   }
 });
 

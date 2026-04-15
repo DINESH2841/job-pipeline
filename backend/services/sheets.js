@@ -4,6 +4,16 @@ import { env } from "../config/env.js";
 
 const RAW_SHEET_NAME = "RawData";
 const LOG_SHEET_NAME = "Logs";
+const HISTORY_SHEET_NAME = "History";
+const HISTORY_STATUS_OPTIONS = [
+  "New",
+  "Applied",
+  "Assessment",
+  "Interview",
+  "In Progress",
+  "Rejected",
+  "Offer"
+];
 
 function getSheetsClient() {
   const auth = new google.auth.JWT({
@@ -354,6 +364,144 @@ export async function appendHistoryLinks(jobs = []) {
 
 export async function updateHistory(jobs = []) {
   return appendHistoryLinks(jobs);
+}
+
+function normalizeHeader(headers = []) {
+  return headers.map((h) => String(h || "").trim().toLowerCase());
+}
+
+function normalizeStatus(status) {
+  return HISTORY_STATUS_OPTIONS.includes(status) ? status : "New";
+}
+
+function normalizeLink(link) {
+  return String(link || "").trim().toLowerCase();
+}
+
+async function getHistoryLayout(sheets, spreadsheetId) {
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${HISTORY_SHEET_NAME}!A1:I1`
+  });
+
+  const headers = normalizeHeader(res.data.values?.[0] || []);
+  const isV2 = headers[0] === "job id" && headers[3] === "apply link";
+
+  return {
+    isV2,
+    maxColumn: isV2 ? "I" : "F"
+  };
+}
+
+export async function updateHistoryEntryFromDashboard(entry = {}) {
+  const sheets = getSheetsClient();
+  await ensureHistorySheet(sheets, env.GOOGLE_SHEET_ID);
+  const layout = await getHistoryLayout(sheets, env.GOOGLE_SHEET_ID);
+
+  const safeStatus = normalizeStatus(entry.status);
+  const nowIso = new Date().toISOString();
+  const source = String(entry.source || "");
+  const notes = String(entry.notes || "");
+  const appliedDate = String(entry.applied_date || "");
+
+  let targetRow = Number(entry.rowIndex || 0);
+
+  if (!targetRow && entry.apply_link) {
+    const rowsRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: env.GOOGLE_SHEET_ID,
+      range: `${HISTORY_SHEET_NAME}!A2:${layout.maxColumn}`
+    });
+    const rows = rowsRes.data.values || [];
+    const linkIndex = layout.isV2 ? 3 : 0;
+    const wanted = normalizeLink(entry.apply_link);
+    const foundIdx = rows.findIndex((r) => normalizeLink(r[linkIndex]) === wanted);
+    if (foundIdx >= 0) {
+      targetRow = foundIdx + 2;
+    }
+  }
+
+  if (!targetRow) {
+    throw new Error("Missing row index for history update.");
+  }
+
+  const range = layout.isV2
+    ? `${HISTORY_SHEET_NAME}!E${targetRow}:I${targetRow}`
+    : `${HISTORY_SHEET_NAME}!B${targetRow}:F${targetRow}`;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: env.GOOGLE_SHEET_ID,
+    range,
+    valueInputOption: "USER_ENTERED",
+    requestBody: {
+      values: [[safeStatus, notes, appliedDate, nowIso, source]]
+    }
+  });
+
+  return { ok: true, rowIndex: targetRow };
+}
+
+export async function markHistoryLinkApplied(input = {}) {
+  const applyLink = String(input.apply_link || "").trim();
+  if (!isValidUrl(applyLink)) {
+    throw new Error("Valid apply_link is required.");
+  }
+
+  const sheets = getSheetsClient();
+  await ensureHistorySheet(sheets, env.GOOGLE_SHEET_ID);
+  const layout = await getHistoryLayout(sheets, env.GOOGLE_SHEET_ID);
+
+  const rowsRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: env.GOOGLE_SHEET_ID,
+    range: `${HISTORY_SHEET_NAME}!A2:${layout.maxColumn}`
+  });
+  const rows = rowsRes.data.values || [];
+
+  const source = String(input.source || "");
+  const nowIso = new Date().toISOString();
+  const wanted = normalizeLink(applyLink);
+  const linkIndex = layout.isV2 ? 3 : 0;
+  const foundIdx = rows.findIndex((r) => normalizeLink(r[linkIndex]) === wanted);
+
+  if (foundIdx >= 0) {
+    const rowIndex = foundIdx + 2;
+    const row = rows[foundIdx] || [];
+    const currentAppliedDate = String(layout.isV2 ? row[6] || "" : row[3] || "");
+    const currentSource = String(layout.isV2 ? row[8] || "" : row[5] || "");
+    const notes = String(layout.isV2 ? row[5] || "" : row[2] || "");
+    const appliedDate = currentAppliedDate || nowIso;
+
+    const range = layout.isV2
+      ? `${HISTORY_SHEET_NAME}!E${rowIndex}:I${rowIndex}`
+      : `${HISTORY_SHEET_NAME}!B${rowIndex}:F${rowIndex}`;
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: env.GOOGLE_SHEET_ID,
+      range,
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: [["Applied", notes, appliedDate, nowIso, currentSource || source]]
+      }
+    });
+
+    return { ok: true, updated: true, rowIndex };
+  }
+
+  const appendRange = layout.isV2
+    ? `${HISTORY_SHEET_NAME}!A1:I1`
+    : `${HISTORY_SHEET_NAME}!A1:F1`;
+
+  const appendRow = layout.isV2
+    ? [["", "", "", applyLink, "Applied", "", nowIso, nowIso, source]]
+    : [[applyLink, "Applied", "", nowIso, nowIso, source]];
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: env.GOOGLE_SHEET_ID,
+    range: appendRange,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: appendRow }
+  });
+
+  return { ok: true, updated: false };
 }
 
 export async function appendRawJobsToSheet(jobs = []) {

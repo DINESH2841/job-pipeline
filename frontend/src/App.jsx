@@ -23,6 +23,7 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [writing, setWriting] = useState(false);
   const [savingRow, setSavingRow] = useState(null);
   const [runningPipeline, setRunningPipeline] = useState(false);
@@ -30,6 +31,7 @@ export default function App() {
   async function loadAll() {
     setLoading(true);
     setError("");
+    setInfo("");
     try {
       const [jobsData, rawDataRows, historyRows, logsRows] = await Promise.all([
         fetchJobs(),
@@ -88,8 +90,11 @@ export default function App() {
     try {
       setRunningPipeline(true);
       setError("");
-      await runPipelineNow();
+      setInfo("");
+      const result = await runPipelineNow();
       await loadAll();
+      const seconds = result?.durationMs ? (Number(result.durationMs) / 1000).toFixed(1) : null;
+      setInfo(seconds ? `Pipeline completed in ${seconds}s. Data refreshed.` : "Pipeline completed. Data refreshed.");
     } catch (err) {
       setError(err.response?.data?.error || err.response?.data?.message || err.message || "Failed to run pipeline now.");
     } finally {
@@ -102,6 +107,12 @@ export default function App() {
       <Sidebar active={activePage} onChange={setActivePage} />
 
       <section className="flex-1 p-4 lg:p-6">
+        {info ? (
+          <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
+            <p className="text-sm font-medium">{info}</p>
+          </div>
+        ) : null}
+
         {loading ? (
           <div className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600">Loading dashboard...</div>
         ) : error ? (

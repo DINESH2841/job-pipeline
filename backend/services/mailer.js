@@ -39,12 +39,18 @@ function renderGroup(title, jobs) {
 export async function sendJobAlertEmail(jobs = []) {
   if (!jobs.length) {
     console.log("[mailer] No jobs found, skipping email.");
-    return false;
+    return {
+      sent: false,
+      reason: "no_jobs"
+    };
   }
 
   if (!env.GMAIL_USER || !env.GMAIL_PASS || !env.ALERT_RECIPIENTS) {
     console.warn("[mailer] Missing GMAIL_USER, GMAIL_PASS, or ALERT_RECIPIENTS. Skipping email.");
-    return false;
+    return {
+      sent: false,
+      reason: "missing_mail_config"
+    };
   }
 
   const transporter = nodemailer.createTransport({
@@ -76,5 +82,8 @@ export async function sendJobAlertEmail(jobs = []) {
   });
 
   console.log("[mailer] Alert email sent.");
-  return true;
+  return {
+    sent: true,
+    reason: "sent"
+  };
 }

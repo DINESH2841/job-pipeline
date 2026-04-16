@@ -34,6 +34,7 @@ export const env = {
   GMAIL_USER: process.env.GMAIL_USER || "",
   GMAIL_PASS: process.env.GMAIL_PASS || "",
   ALERT_RECIPIENTS: process.env.ALERT_RECIPIENTS || "",
+  WEBSITE_URL: process.env.WEBSITE_URL || "https://dinesh2841.github.io/job-pipeline/",
   JOB_KEYWORDS: process.env.JOB_KEYWORDS || "software engineer,frontend developer,full stack developer",
   JOB_LOCATION: process.env.JOB_LOCATION || "India",
   FETCH_TIMEOUT_MS: Number(process.env.FETCH_TIMEOUT_MS || "0"),

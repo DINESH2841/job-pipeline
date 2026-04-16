@@ -125,6 +125,8 @@ export async function sendJobAlertEmail(jobs = []) {
   const companies = topCounts(jobs.map((job) => job.company));
   const remoteCount = jobs.filter((job) => String(job.location || "").toLowerCase().includes("remote")).length;
   const generatedAt = new Date();
+  const websiteUrl = String(env.WEBSITE_URL || "").trim();
+  const hasWebsiteLink = /^https?:\/\//i.test(websiteUrl);
 
   const topLocations = locations.length
     ? locations.map(([name, count]) => `${name} (${count})`).join(", ")
@@ -143,6 +145,7 @@ export async function sendJobAlertEmail(jobs = []) {
     `Remote jobs: ${remoteCount}`,
     `Top locations: ${topLocations}`,
     `Top companies: ${topCompanies}`,
+    ...(hasWebsiteLink ? [`Website: ${websiteUrl}`] : []),
     "",
     ...jobs.map(
       (job, idx) => `${idx + 1}. ${job.title} at ${job.company} (${job.location}) | Score: ${job.score} | Apply: ${job.apply_link}`
@@ -181,6 +184,12 @@ export async function sendJobAlertEmail(jobs = []) {
               <div style="margin-top:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px;">
                 <div style="font-size:13px; color:#334155;"><strong>Top Locations:</strong> ${escapeHtml(topLocations)}</div>
                 <div style="font-size:13px; color:#334155; margin-top:6px;"><strong>Top Companies:</strong> ${escapeHtml(topCompanies)}</div>
+                ${hasWebsiteLink
+    ? `<div style="margin-top:10px;">
+                     <a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noreferrer" style="display:inline-block; text-decoration:none; color:#ffffff; background:#0f172a; border-radius:10px; padding:8px 12px; font-size:12px; font-weight:700;">🌐 Open Website</a>
+                     <div style="font-size:11px; color:#64748b; margin-top:6px; word-break:break-all;">${escapeHtml(websiteUrl)}</div>
+                   </div>`
+    : ""}
               </div>
 
               ${renderGroup("🔥 High Priority", "#dc2626", grouped.HIGH)}

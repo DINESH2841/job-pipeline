@@ -25,7 +25,15 @@ jobs:
       GMAIL_USER: ${{ secrets.GMAIL_USER }}
       GMAIL_PASS: ${{ secrets.GMAIL_PASS }}
       ALERT_RECIPIENTS: ${{ secrets.ALERT_RECIPIENTS || 'dineshsevenni@gmail.com' }}
+      ALERT_MIN_GROUP: ${{ secrets['ALERT_MIN_GROUP'] || vars['ALERT_MIN_GROUP'] || 'GOOD' }}
       WEBSITE_URL: ${{ secrets.WEBSITE_URL || 'https://dinesh2841.github.io/job-pipeline/' }}
+      JOB_KEYWORDS: ${{ secrets['JOB_KEYWORDS'] || vars['JOB_KEYWORDS'] || 'software engineer,frontend developer,full stack developer,backend developer,ece engineer,electronics engineer,embedded engineer,firmware engineer,vlsi engineer,hardware engineer' }}
+      ROLE_SKILLS: ${{ secrets['ROLE_SKILLS'] || vars['ROLE_SKILLS'] || 'node.js,react,javascript,backend,frontend,python,java,express,mongodb,rest api|c,c++,embedded,signal processing,vlsi,circuit design,ece,fpga,asic,rtos,microcontroller,embedded systems,hardware,pcb,iot,arduino,esp32,embedded c,device driver,robotics,control systems,rf,antenna,communication' }}
+      JOB_LOCATION: ${{ secrets['JOB_LOCATION'] || vars['JOB_LOCATION'] || 'India' }}
+      PREFERRED_LOCATIONS: ${{ secrets['PREFERRED_LOCATIONS'] || vars['PREFERRED_LOCATIONS'] || 'chennai,bangalore,hyderabad,remote,india' }}
+      LOCAL_MIN_SCORE: ${{ secrets['LOCAL_MIN_SCORE'] || vars['LOCAL_MIN_SCORE'] || '50' }}
+      LOCAL_MAX_EXPERIENCE_YEARS: ${{ secrets['LOCAL_MAX_EXPERIENCE_YEARS'] || vars['LOCAL_MAX_EXPERIENCE_YEARS'] || '6' }}
+      DAYS_TO_KEEP: ${{ secrets['DAYS_TO_KEEP'] || vars['DAYS_TO_KEEP'] || '14' }}
 
     steps:
       - name: Checkout repo

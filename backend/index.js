@@ -14,7 +14,6 @@ import { sendJobAlertEmail } from "./services/mailer.js";
 import { filterOldJobs } from "./utils/helpers.js";
 
 function localFilter(job) {
-  const keywords = ["node", "react", "javascript", "full stack", "frontend", "backend"];
   const preferredLocations = env.PREFERRED_LOCATIONS
     .split(",")
     .map((v) => v.trim().toLowerCase())
@@ -25,7 +24,8 @@ function localFilter(job) {
   const location = String(job.location || "").toLowerCase();
   const experience = String(job.experience || "").toLowerCase();
 
-  const keywordMatch = keywords.some((k) => title.includes(k) || skills.includes(k));
+  // Check if job title or keywords match any from JOB_KEYWORDS config
+  const keywordMatch = env.JOB_KEYWORDS.some((k) => title.includes(k)) || env.ROLE_SKILLS.flat().some((skill) => title.includes(skill) || skills.includes(skill));
   const locationMatch = preferredLocations.some((loc) => location.includes(loc));
   const expMatch = experience.match(/(\d+)/);
   const expYears = expMatch ? Number(expMatch[1]) : null;
@@ -37,14 +37,19 @@ function localFilter(job) {
 function scoreJob(job) {
   let score = 0;
   const skills = String(job.skills || "").toLowerCase();
+  const title = String(job.title || "").toLowerCase();
 
-  if (skills.includes("react")) score += 20;
-  if (skills.includes("node")) score += 20;
-  if (skills.includes("javascript")) score += 15;
+  // Score based on matched skills from configured ROLE_SKILLS
+  env.ROLE_SKILLS.forEach((skillGroup) => {
+    const matchedSkills = skillGroup.filter((skill) => skills.includes(skill) || title.includes(skill));
+    score += Math.min(matchedSkills.length * 10, 30);
+  });
 
+  // Bonus for location
   if (job.location === "Remote") score += 20;
   if (["Chennai", "Bangalore", "Hyderabad"].includes(job.location)) score += 15;
 
+  // Experience scoring
   const exp = String(job.experience || "");
   if (exp.includes("0") || exp.includes("1")) score += 20;
   else if (exp.includes("2") || exp.includes("3")) score += 10;
@@ -57,6 +62,27 @@ function groupJob(score) {
   if (score >= 85) return "HIGH";
   if (score >= 70) return "GOOD";
   return "LOW";
+}
+
+function normalizeGroup(group) {
+  const g = String(group || "").trim().toUpperCase();
+  if (g === "HIGH") return "HIGH";
+  if (g === "GOOD") return "GOOD";
+  return "LOW";
+}
+
+function filterJobsForAlert(jobs = []) {
+  const threshold = String(env.ALERT_MIN_GROUP || "GOOD").trim().toUpperCase();
+  if (threshold === "ALL") return jobs;
+
+  const rank = {
+    LOW: 1,
+    GOOD: 2,
+    HIGH: 3
+  };
+
+  const minRank = rank[threshold] || rank.GOOD;
+  return jobs.filter((job) => rank[normalizeGroup(job.group)] >= minRank);
 }
 
 function isValidUrl(url) {
@@ -223,9 +249,11 @@ async function runPipeline() {
     }
     console.log(`[pipeline] history links appended: ${historyInserted}`);
 
+    const alertJobs = filterJobsForAlert(scored);
+
     let emailResult;
     try {
-      emailResult = await sendJobAlertEmail(scored);
+      emailResult = await sendJobAlertEmail(alertJobs);
     } catch (error) {
       await logEvent({
         run_id,
@@ -244,7 +272,9 @@ async function runPipeline() {
       data: {
         sent: Boolean(emailResult?.sent),
         reason: emailResult?.reason || "unknown",
-        selectedJobs: scored.length
+        selectedJobs: scored.length,
+        alertJobs: alertJobs.length,
+        alertMinGroup: String(env.ALERT_MIN_GROUP || "GOOD").toUpperCase()
       }
     });
 

@@ -5,6 +5,31 @@ import { normalizeText } from "../utils/helpers.js";
 
 const FETCH_TIMEOUT = env.FETCH_TIMEOUT_MS > 0 ? env.FETCH_TIMEOUT_MS : 0;
 
+function toSearchTerms(value, fallback = []) {
+  const source = Array.isArray(value)
+    ? value
+    : String(value || "")
+        .split(",")
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean);
+
+  return [...new Set([...source, ...fallback])].filter(Boolean);
+}
+
+function getKeywordTerms(pipeline = {}) {
+  return toSearchTerms(pipeline.keywords || env.JOB_KEYWORDS, ["software engineer", "embedded engineer"])
+    .map((term) => String(term).trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function getLocationQuery(pipeline = {}) {
+  return String(pipeline.searchLocation || env.SEARCH_LOCATION || "India").trim() || "India";
+}
+
+function buildSearchQuery(terms = []) {
+  return terms.length ? terms.join(" OR ") : "software engineer OR embedded engineer";
+}
+
 function extractExperience(desc = "") {
   const match = String(desc).match(/(\d+)\+?\s*(years|yrs)/i);
   return match ? `${match[1]} years` : "0-2 years";
@@ -98,11 +123,11 @@ function mapJob(job, fallbackSource = "Unknown") {
   return mapped;
 }
 
-async function fetchFromApifyLinkedIn() {
+async function fetchFromApifyLinkedIn(pipeline = {}) {
   try {
     const defaultInput = {
-      keywords: "software engineer",
-      location: "India",
+      keywords: getKeywordTerms(pipeline).join(", "),
+      location: getLocationQuery(pipeline),
       ...(env.FETCH_MAX_ITEMS > 0 ? { maxItems: env.FETCH_MAX_ITEMS } : {})
     };
 
@@ -136,13 +161,11 @@ async function fetchFromApifyLinkedIn() {
   }
 }
 
-async function fetchFromSerpApiIndeed() {
+async function fetchFromSerpApiIndeed(pipeline = {}) {
   try {
-    const keywordQuery = env.JOB_KEYWORDS
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean)
-      .join(" OR ") || "software engineer OR nodejs OR react developer";
+    const keywordTerms = getKeywordTerms(pipeline);
+    const keywordQuery = buildSearchQuery(keywordTerms);
+    const locationQuery = getLocationQuery(pipeline);
 
     const allJobs = [];
     let nextPageToken = "";
@@ -156,7 +179,7 @@ async function fetchFromSerpApiIndeed() {
         params: {
           engine: "google_jobs",
           q: keywordQuery,
-          location: env.JOB_LOCATION || "India",
+          location: locationQuery,
           google_domain: "google.com",
           gl: "in",
           hl: "en",
@@ -188,8 +211,8 @@ async function fetchFromSerpApiIndeed() {
   }
 }
 
-export async function fetchJobs() {
-  const settled = await Promise.allSettled([fetchFromApifyLinkedIn(), fetchFromSerpApiIndeed()]);
+export async function fetchJobs(pipeline = {}) {
+  const settled = await Promise.allSettled([fetchFromApifyLinkedIn(pipeline), fetchFromSerpApiIndeed(pipeline)]);
 
   const jobs = [];
   settled.forEach((result, index) => {
@@ -204,7 +227,7 @@ export async function fetchJobs() {
   const deduped = [];
   const seen = new Set();
   for (const job of jobs) {
-    const key = String(job.id || job.job_id || job.apply_link || `${job.title}|${job.company}|${job.location}`)
+    const key = String(job.apply_link || job.id || job.job_id || `${job.title}|${job.company}|${job.location}`)
       .trim()
       .toLowerCase();
     if (!key || seen.has(key)) continue;

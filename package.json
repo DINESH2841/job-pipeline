@@ -1,0 +1,7 @@
+{
+  "name": "job-pipeline",
+  "private": true,
+  "scripts": {
+    "migrate:supabase": "npm --prefix backend run migrate:supabase"
+  }
+}

@@ -9,24 +9,46 @@ import {
   getHistorySet,
   getRunId,
   logEvent
-} from "./services/sheets.js";
+} from "./services/supabaseStore.js";
 import { sendJobAlertEmail } from "./services/mailer.js";
 import { filterOldJobs } from "./utils/helpers.js";
 
-function localFilter(job) {
-  const preferredLocations = env.PREFERRED_LOCATIONS
-    .split(",")
-    .map((v) => v.trim().toLowerCase())
+function normalizeLink(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getPipelineLabel(pipeline = {}) {
+  return String(pipeline.name || "pipeline").trim().toLowerCase() || "pipeline";
+}
+
+function getPipelineKeywords(pipeline = {}) {
+  return Array.isArray(pipeline.keywords) ? pipeline.keywords : [];
+}
+
+function getPipelineSkills(pipeline = {}) {
+  return Array.isArray(pipeline.skills) ? pipeline.skills : [];
+}
+
+function localFilter(job, pipeline = {}) {
+  const preferredLocations = [
+    ...(Array.isArray(pipeline.cities) ? pipeline.cities : []),
+    ...(Array.isArray(pipeline.states) ? pipeline.states : [])
+  ]
+    .map((v) => String(v).trim().toLowerCase())
     .filter(Boolean);
 
   const title = String(job.title || "").toLowerCase();
   const skills = String(job.skills || "").toLowerCase();
+  const description = String(job.description || "").toLowerCase();
   const location = String(job.location || "").toLowerCase();
   const experience = String(job.experience || "").toLowerCase();
+  const searchText = [title, skills, description].join(" ");
 
-  // Check if job title or keywords match any from JOB_KEYWORDS config
-  const keywordMatch = env.JOB_KEYWORDS.some((k) => title.includes(k)) || env.ROLE_SKILLS.flat().some((skill) => title.includes(skill) || skills.includes(skill));
-  const locationMatch = preferredLocations.some((loc) => location.includes(loc));
+  const keywordMatch = getPipelineKeywords(pipeline).some((k) => searchText.includes(k))
+    || getPipelineSkills(pipeline).flat().some((skill) => searchText.includes(skill));
+  const locationMatch = preferredLocations.length
+    ? preferredLocations.some((loc) => location.includes(loc)) || location.includes("remote")
+    : location.includes("remote") || location.includes("india");
   const expMatch = experience.match(/(\d+)/);
   const expYears = expMatch ? Number(expMatch[1]) : null;
   const experienceOk = expYears === null || expYears <= env.LOCAL_MAX_EXPERIENCE_YEARS;
@@ -34,20 +56,25 @@ function localFilter(job) {
   return keywordMatch && locationMatch && experienceOk;
 }
 
-function scoreJob(job) {
+function scoreJob(job, pipeline = {}) {
   let score = 0;
   const skills = String(job.skills || "").toLowerCase();
   const title = String(job.title || "").toLowerCase();
+  const description = String(job.description || "").toLowerCase();
+  const searchText = [title, skills, description].join(" ");
 
-  // Score based on matched skills from configured ROLE_SKILLS
-  env.ROLE_SKILLS.forEach((skillGroup) => {
-    const matchedSkills = skillGroup.filter((skill) => skills.includes(skill) || title.includes(skill));
-    score += Math.min(matchedSkills.length * 10, 30);
+  getPipelineSkills(pipeline).forEach((skillGroup) => {
+    const matchedSkills = skillGroup.filter((skill) => searchText.includes(skill));
+    score += Math.min(matchedSkills.length * 10, 35);
   });
 
   // Bonus for location
-  if (job.location === "Remote") score += 20;
-  if (["Chennai", "Bangalore", "Hyderabad"].includes(job.location)) score += 15;
+  const location = String(job.location || "").toLowerCase();
+  const preferredCities = (Array.isArray(pipeline.cities) ? pipeline.cities : []).map((loc) => String(loc).toLowerCase());
+  const preferredStates = (Array.isArray(pipeline.states) ? pipeline.states : []).map((loc) => String(loc).toLowerCase());
+  if (location.includes("remote")) score += 20;
+  if (preferredCities.some((loc) => location.includes(loc))) score += 15;
+  if (preferredStates.some((loc) => location.includes(loc))) score += 10;
 
   // Experience scoring
   const exp = String(job.experience || "");
@@ -103,12 +130,19 @@ function needsAI(job) {
   return !job.skills || job.skills === "N/A";
 }
 
-function processJobsLocally(jobs = []) {
+function tagJobsWithCategory(jobs = [], category = "") {
+  return jobs.map((job) => ({
+    ...job,
+    category: category || job.category || ""
+  }));
+}
+
+function processJobsLocally(jobs = [], pipeline = {}) {
   return jobs
     .filter((job) => isValidUrl(job.apply_link) && isValidTitle(job.title))
-    .filter(localFilter)
+    .filter((job) => localFilter(job, pipeline))
     .map((job) => {
-      const score = scoreJob(job);
+      const score = scoreJob(job, pipeline);
       return {
         ...job,
         score,
@@ -119,66 +153,79 @@ function processJobsLocally(jobs = []) {
     .sort((a, b) => b.score - a.score);
 }
 
-async function runPipeline() {
-  console.log("[pipeline] Starting run...");
+async function runPipeline(pipeline = {}, sharedContext = {}) {
+  const label = getPipelineLabel(pipeline);
+  const run_id = sharedContext.run_id || getRunId();
+  const historyApplyLinks = sharedContext.historyApplyLinks || new Set();
+  const seenLinks = sharedContext.seenLinks || new Set();
+
+  console.log(`[pipeline:${label}] Starting run...`);
   const startedAt = Date.now();
-  const run_id = getRunId();
 
   try {
-    await logEvent({ run_id, level: "info", step: "start", message: "Pipeline started" });
-
-    const fetchedJobs = await fetchJobs();
-    console.log(`[pipeline] fetched jobs: ${fetchedJobs.length}`);
     await logEvent({
       run_id,
       level: "info",
-      step: "fetch",
+      step: `${label}:start`,
+      message: `Pipeline started for ${label}`,
+      data: { category: label, keywords: getPipelineKeywords(pipeline).length }
+    });
+
+    const fetchedJobs = await fetchJobs(pipeline);
+    const taggedJobs = tagJobsWithCategory(fetchedJobs, label);
+    console.log(`[pipeline:${label}] fetched jobs: ${taggedJobs.length}`);
+    await logEvent({
+      run_id,
+      level: "info",
+      step: `${label}:fetch`,
       message: "Jobs fetched",
-      data: { count: fetchedJobs.length }
+      data: { count: taggedJobs.length, category: label }
+    });
+
+    const recentJobs = filterOldJobs(taggedJobs, env.DAYS_TO_KEEP);
+    console.log(`[pipeline:${label}] recent jobs: ${recentJobs.length}`);
+
+    const newJobs = recentJobs.filter((job) => {
+      const link = normalizeLink(job.apply_link || job.url || job.link || "");
+      if (!link) return false;
+      if (historyApplyLinks.has(link)) return false;
+      if (seenLinks.has(link)) return false;
+      seenLinks.add(link);
+      return true;
+    });
+    console.log(`[pipeline:${label}] history-deduped jobs: ${newJobs.length}`);
+    await logEvent({
+      run_id,
+      level: "info",
+      step: `${label}:dedup`,
+      message: "Removed duplicates",
+      data: { remaining: newJobs.length, category: label }
     });
 
     let rawRowsInserted = 0;
     try {
-      rawRowsInserted = await saveRawData(fetchedJobs);
+      rawRowsInserted = await saveRawData(newJobs);
     } catch (error) {
       await logEvent({
         run_id,
         level: "error",
-        step: "raw",
+        step: `${label}:raw`,
         message: error.message,
-        data: {}
+        data: { category: label }
       });
       throw error;
     }
-    console.log(`[pipeline] raw rows appended: ${rawRowsInserted}`);
+    console.log(`[pipeline:${label}] raw rows appended: ${rawRowsInserted}`);
     await logEvent({
       run_id,
       level: "info",
-      step: "raw",
+      step: `${label}:raw`,
       message: "Raw data stored",
-      data: { stored: rawRowsInserted }
+      data: { stored: rawRowsInserted, category: label }
     });
 
-    const recentJobs = filterOldJobs(fetchedJobs, env.DAYS_TO_KEEP);
-    console.log(`[pipeline] recent jobs: ${recentJobs.length}`);
-
-    const historyJobIds = await getHistorySet();
-    // Dedupe strictly by job_id from History sheet
-    const dedupedJobs = recentJobs.filter((job) => {
-      const id = job.id || job.job_id;
-      return id && !historyJobIds.has(id);
-    });
-    console.log(`[pipeline] history-deduped jobs: ${dedupedJobs.length}`);
-    await logEvent({
-      run_id,
-      level: "info",
-      step: "dedup",
-      message: "Removed duplicates",
-      data: { remaining: dedupedJobs.length }
-    });
-
-    const locallyProcessed = processJobsLocally(dedupedJobs);
-    console.log(`[pipeline] local-selected jobs: ${locallyProcessed.length}`);
+    const locallyProcessed = processJobsLocally(newJobs, pipeline);
+    console.log(`[pipeline:${label}] local-selected jobs: ${locallyProcessed.length}`);
 
     const aiCandidates = locallyProcessed.filter(needsAI);
     let scored = locallyProcessed;
@@ -203,13 +250,13 @@ async function runPipeline() {
       });
     }
 
-    console.log(`[pipeline] ai-final jobs: ${scored.length}`);
+    console.log(`[pipeline:${label}] ai-final jobs: ${scored.length}`);
     await logEvent({
       run_id,
       level: "info",
-      step: "ai",
+      step: `${label}:ai`,
       message: "Jobs locally scored (+ optional AI fallback)",
-      data: { selected: scored.length }
+      data: { selected: scored.length, category: label }
     });
 
     let rowsInserted = 0;
@@ -219,19 +266,19 @@ async function runPipeline() {
       await logEvent({
         run_id,
         level: "error",
-        step: "sheets",
+        step: `${label}:save`,
         message: error.message,
-        data: {}
+        data: { category: label }
       });
       throw error;
     }
-    console.log(`[pipeline] rows appended to sheets: ${rowsInserted}`);
+    console.log(`[pipeline:${label}] rows appended to database: ${rowsInserted}`);
     await logEvent({
       run_id,
       level: "info",
-      step: "sheets",
-      message: "Jobs saved to sheet",
-      data: { saved: rowsInserted }
+      step: `${label}:save`,
+      message: "Jobs saved to database",
+      data: { saved: rowsInserted, category: label }
     });
 
     let historyInserted = 0;
@@ -241,13 +288,13 @@ async function runPipeline() {
       await logEvent({
         run_id,
         level: "error",
-        step: "history",
+        step: `${label}:history`,
         message: error.message,
-        data: {}
+        data: { category: label }
       });
       throw error;
     }
-    console.log(`[pipeline] history links appended: ${historyInserted}`);
+    console.log(`[pipeline:${label}] history links appended: ${historyInserted}`);
 
     const alertJobs = filterJobsForAlert(scored);
 
@@ -258,35 +305,37 @@ async function runPipeline() {
       await logEvent({
         run_id,
         level: "error",
-        step: "email",
+        step: `${label}:email`,
         message: error.message,
-        data: {}
+        data: { category: label }
       });
       throw error;
     }
     await logEvent({
       run_id,
       level: "info",
-      step: "email",
+      step: `${label}:email`,
       message: emailResult?.sent ? "Email sent" : "Email skipped",
       data: {
         sent: Boolean(emailResult?.sent),
         reason: emailResult?.reason || "unknown",
         selectedJobs: scored.length,
         alertJobs: alertJobs.length,
-        alertMinGroup: String(env.ALERT_MIN_GROUP || "GOOD").toUpperCase()
+        alertMinGroup: String(env.ALERT_MIN_GROUP || "GOOD").toUpperCase(),
+        category: label
       }
     });
 
     const finishedAt = Date.now();
-    console.log(`[pipeline] completed in ${((finishedAt - startedAt) / 1000).toFixed(2)}s`);
-    await logEvent({ run_id, level: "info", step: "completed", message: "Pipeline completed" });
+    console.log(`[pipeline:${label}] completed in ${((finishedAt - startedAt) / 1000).toFixed(2)}s`);
+    await logEvent({ run_id, level: "info", step: `${label}:completed`, message: "Pipeline completed", data: { category: label } });
 
     return {
       run_id,
+      category: label,
       fetched: fetchedJobs.length,
       recent: recentJobs.length,
-      deduped: dedupedJobs.length,
+      deduped: newJobs.length,
       rawInserted: rawRowsInserted,
       selected: scored.length,
       inserted: rowsInserted,
@@ -300,12 +349,29 @@ async function runPipeline() {
     await logEvent({
       run_id,
       level: "error",
-      step: "failure",
+      step: `${label}:failure`,
       message: err.message,
-      data: {}
+      data: { category: label }
     });
     throw err;
   }
+}
+
+async function runAllPipelines() {
+  const run_id = getRunId();
+  const sharedContext = {
+    run_id,
+    historyApplyLinks: await getHistorySet(),
+    seenLinks: new Set()
+  };
+
+  const results = [];
+  for (const pipeline of env.PIPELINES) {
+    const result = await runPipeline(pipeline, sharedContext);
+    results.push(result);
+  }
+
+  return results;
 }
 
 async function main() {
@@ -317,17 +383,17 @@ async function main() {
       // 09:00 and 18:00 IST => 03:30 and 12:30 UTC
       cron.schedule("30 3,12 * * *", async () => {
         try {
-          await runPipeline();
+          await runAllPipelines();
         } catch (error) {
           console.error("[pipeline] Scheduled run failed:", error);
         }
       });
 
-      await runPipeline();
+      await runAllPipelines();
       return;
     }
 
-    await runPipeline();
+    await runAllPipelines();
   } catch (error) {
     console.error("[pipeline] Fatal error:", error);
     process.exitCode = 1;

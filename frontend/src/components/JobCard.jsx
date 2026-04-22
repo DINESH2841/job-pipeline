@@ -5,6 +5,12 @@ export default function JobCard({ job }) {
     Low: "bg-amber-100 text-amber-800"
   };
 
+  const categoryStyles = {
+    software: "bg-sky-100 text-sky-800",
+    embedded: "bg-violet-100 text-violet-800",
+    hardware: "bg-rose-100 text-rose-800"
+  };
+
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-3">
@@ -13,6 +19,11 @@ export default function JobCard({ job }) {
           <p className="text-sm text-slate-600 mt-1">
             {job.company} • {job.location}
           </p>
+          {job.category ? (
+            <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${categoryStyles[String(job.category).toLowerCase()] || "bg-slate-100 text-slate-700"}`}>
+              {job.category}
+            </span>
+          ) : null}
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${

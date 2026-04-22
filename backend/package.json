@@ -5,11 +5,15 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js",
-    "api": "node apiServer.js"
+    "start": "node apiServer.js",
+    "dev": "node --watch apiServer.js",
+    "pipeline": "node index.js",
+    "pipeline:dev": "node --watch index.js",
+    "api": "node apiServer.js",
+    "migrate:supabase": "node scripts/migrate.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.104.0",
     "axios": "^1.8.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

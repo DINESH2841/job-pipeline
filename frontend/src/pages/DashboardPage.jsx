@@ -4,9 +4,9 @@ import StatusPill from "../components/common/StatusPill";
 
 function StatCard({ label, value }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
+    <div className="rounded-3xl border border-slate-200/80 bg-white/90 p-5 shadow-sm shadow-slate-200/60">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</p>
     </div>
   );
 }
@@ -38,7 +38,7 @@ export default function DashboardPage({ jobs, history, logs, onRunNow, runningPi
             type="button"
             onClick={onRunNow}
             disabled={runningPipeline}
-            className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            className="rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:translate-y-[-1px] hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
           >
             {runningPipeline ? "Running..." : "Run now"}
           </button>
@@ -50,30 +50,60 @@ export default function DashboardPage({ jobs, history, logs, onRunNow, runningPi
           <StatCard label="Applied Jobs" value={stats.applied} />
           <StatCard label="Interviews" value={stats.interviews} />
         </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-3xl border border-slate-200/80 bg-slate-50/90 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Pipeline health</p>
+            <p className="mt-3 text-lg font-bold text-slate-950">Automated scheduling</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              The backend now runs three focused pipelines for software, embedded, and hardware roles.
+            </p>
+          </div>
+          <div className="rounded-3xl border border-slate-200/80 bg-slate-50/90 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Latest activity</p>
+            <p className="mt-3 text-lg font-bold text-slate-950">{recentLogs[0]?.message || "No recent activity"}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{recentLogs[0]?.step || "Waiting for the next pipeline run."}</p>
+          </div>
+          <div className="rounded-3xl border border-slate-200/80 bg-slate-50/90 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Focus</p>
+            <p className="mt-3 text-lg font-bold text-slate-950">Software + embedded + hardware roles</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Highlighting fresher-friendly software, embedded/IoT, and core ECE/VLSI jobs for Chennai, Bangalore, Hyderabad, and nearby states.
+            </p>
+          </div>
+        </div>
       </PageShell>
 
       <PageShell title="Recent Activity" description="Latest pipeline events from Logs">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500">
-                <th className="pb-2 pr-3 font-medium">Timestamp</th>
-                <th className="pb-2 pr-3 font-medium">Run ID</th>
-                <th className="pb-2 pr-3 font-medium">Level</th>
-                <th className="pb-2 pr-3 font-medium">Step</th>
-                <th className="pb-2 pr-3 font-medium">Message</th>
+              <tr className="border-b border-slate-200/80 text-left text-slate-500">
+                <th className="pb-3 pr-3 font-medium">Timestamp</th>
+                <th className="pb-3 pr-3 font-medium">Run ID</th>
+                <th className="pb-3 pr-3 font-medium">Level</th>
+                <th className="pb-3 pr-3 font-medium">Step</th>
+                <th className="pb-3 pr-3 font-medium">Message</th>
               </tr>
             </thead>
             <tbody>
-              {recentLogs.map((log) => (
-                <tr key={`${log.rowIndex}-${log.timestamp}`} className="border-b border-slate-100">
-                  <td className="py-2 pr-3 text-slate-600">{log.timestamp || "-"}</td>
-                  <td className="py-2 pr-3 text-slate-700">{log.run_id || "-"}</td>
-                  <td className="py-2 pr-3"><StatusPill value={log.level} /></td>
-                  <td className="py-2 pr-3 text-slate-700">{log.step || "-"}</td>
-                  <td className="py-2 pr-3 text-slate-700">{log.message || "-"}</td>
+              {recentLogs.length ? (
+                recentLogs.map((log) => (
+                  <tr key={`${log.rowIndex}-${log.timestamp}`} className="border-b border-slate-100/80">
+                    <td className="py-3 pr-3 text-slate-600">{log.timestamp || "-"}</td>
+                    <td className="py-3 pr-3 text-slate-700">{log.run_id || "-"}</td>
+                    <td className="py-3 pr-3"><StatusPill value={log.level} /></td>
+                    <td className="py-3 pr-3 text-slate-700">{log.step || "-"}</td>
+                    <td className="py-3 pr-3 text-slate-700">{log.message || "-"}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="py-6 text-sm text-slate-500" colSpan={5}>
+                    No activity yet. Once the pipeline runs, recent events will appear here.
+                  </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

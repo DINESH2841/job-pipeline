@@ -1,16 +1,75 @@
 import express from "express";
 import cors from "cors";
 import { spawn } from "node:child_process";
-import { markHistoryLinkApplied, updateHistoryEntryFromDashboard } from "./services/sheets.js";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import {
+  fetchHistoryForApi,
+  fetchJobsForApi,
+  fetchLogsForApi,
+  fetchRawJobsForApi,
+  markHistoryLinkApplied,
+  updateHistoryEntryFromDashboard
+} from "./services/supabaseStore.js";
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "job-pipeline-api" });
+});
+
+app.get("/api/jobs", async (_req, res) => {
+  try {
+    const data = await fetchJobsForApi();
+    return res.json(data);
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: { message: error.message || "Failed to fetch jobs" }
+    });
+  }
+});
+
+app.get("/api/history", async (_req, res) => {
+  try {
+    const data = await fetchHistoryForApi();
+    return res.json(data);
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: { message: error.message || "Failed to fetch history" }
+    });
+  }
+});
+
+app.get("/api/logs", async (_req, res) => {
+  try {
+    const data = await fetchLogsForApi();
+    return res.json(data);
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: { message: error.message || "Failed to fetch logs" }
+    });
+  }
+});
+
+app.get("/api/raw-data", async (_req, res) => {
+  try {
+    const data = await fetchRawJobsForApi();
+    return res.json(data);
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      error: { message: error.message || "Failed to fetch raw data" }
+    });
+  }
 });
 
 let isRunning = false;
@@ -28,7 +87,7 @@ app.post("/api/pipeline/run", async (_req, res) => {
 
   try {
     const child = spawn("node", ["index.js"], {
-      cwd: process.cwd(),
+      cwd: __dirname,
       shell: true,
       env: process.env
     });
@@ -100,6 +159,20 @@ app.post("/api/history/update", async (req, res) => {
       ok: false,
       error: {
         message: error.message || "Failed to update history row"
+      }
+    });
+  }
+});
+
+app.post("/api/applications", async (req, res) => {
+  try {
+    const result = await markHistoryLinkApplied(req.body || {});
+    return res.json(result);
+  } catch (error) {
+    return res.status(400).json({
+      ok: false,
+      error: {
+        message: error.message || "Failed to create application"
       }
     });
   }

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || (import.meta.env.DEV ? "http://localhost:4000" : "");
 
 export const STATUS_OPTIONS = [
   "New",
@@ -12,29 +12,50 @@ export const STATUS_OPTIONS = [
   "Offer"
 ];
 
-export async function fetchJobs() {
-  const res = await axios.get(`${BACKEND_BASE_URL}/api/jobs`);
+function assertBackendConfig() {
+  if (!BACKEND_BASE_URL) {
+    throw new Error("Missing VITE_BACKEND_URL in frontend env.");
+  }
+
+  if (!import.meta.env.DEV) {
+    const normalized = String(BACKEND_BASE_URL).toLowerCase();
+    if (normalized.includes("localhost") || normalized.includes("127.0.0.1")) {
+      throw new Error("Invalid VITE_BACKEND_URL for production. Use a public HTTPS backend URL.");
+    }
+  }
+}
+
+async function apiGet(path) {
+  assertBackendConfig();
+  const res = await axios.get(`${BACKEND_BASE_URL}${path}`);
   return res.data || [];
+}
+
+async function apiPost(path, payload) {
+  assertBackendConfig();
+  const res = await axios.post(`${BACKEND_BASE_URL}${path}`, payload || {});
+  return res.data;
+}
+
+export async function fetchJobs() {
+  return apiGet("/api/jobs");
 }
 
 export async function fetchRawData() {
-  const res = await axios.get(`${BACKEND_BASE_URL}/api/raw-data`);
-  return res.data || [];
+  return apiGet("/api/raw-data");
 }
 
 export async function fetchHistory() {
-  const res = await axios.get(`${BACKEND_BASE_URL}/api/history`);
-  return res.data || [];
+  return apiGet("/api/history");
 }
 
 export async function fetchLogs() {
-  const res = await axios.get(`${BACKEND_BASE_URL}/api/logs`);
-  return res.data || [];
+  return apiGet("/api/logs");
 }
 
 export async function updateHistoryEntry(entry) {
   const safeStatus = STATUS_OPTIONS.includes(entry.status) ? entry.status : "New";
-  const res = await axios.post(`${BACKEND_BASE_URL}/api/history/update`, {
+  return apiPost("/api/history/update", {
     id: entry.id,
     apply_link: entry.apply_link,
     status: safeStatus,
@@ -42,18 +63,15 @@ export async function updateHistoryEntry(entry) {
     applied_date: entry.applied_date || "",
     source: entry.source || ""
   });
-  return res.data;
 }
 
 export async function markJobAsApplied(job) {
-  const res = await axios.post(`${BACKEND_BASE_URL}/api/history/mark-applied`, {
+  return apiPost("/api/history/mark-applied", {
     apply_link: job.apply_link,
     source: job.source || ""
   });
-  return res.data;
 }
 
 export async function runPipelineNow() {
-  const res = await axios.post(`${BACKEND_BASE_URL}/api/pipeline/run`);
-  return res.data;
+  return apiPost("/api/pipeline/run", {});
 }

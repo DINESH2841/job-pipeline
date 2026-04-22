@@ -8,7 +8,7 @@ const items = [
 
 export default function Sidebar({ active, onChange }) {
   return (
-    <aside className="w-full border-b border-slate-200/80 bg-slate-950 px-4 py-4 text-white shadow-2xl lg:sticky lg:top-0 lg:h-screen lg:w-76 lg:border-b-0 lg:border-r lg:border-slate-800 lg:px-5">
+    <aside className="w-full border-b border-slate-200/80 bg-slate-950 px-4 py-4 text-white shadow-2xl xl:sticky xl:top-0 xl:h-screen xl:w-[22rem] xl:flex-none xl:border-b-0 xl:border-r xl:border-slate-800 xl:px-5">
       <div className="mb-5 rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 to-indigo-500 text-lg font-black text-white shadow-lg shadow-sky-500/30">
@@ -24,7 +24,7 @@ export default function Sidebar({ active, onChange }) {
         </p>
       </div>
 
-      <nav className="flex gap-2 overflow-auto lg:flex-col">
+      <nav className="flex gap-2 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible xl:pb-0">
         {items.map((item) => {
           const isActive = active === item.key;
           return (
@@ -32,7 +32,7 @@ export default function Sidebar({ active, onChange }) {
               key={item.key}
               type="button"
               onClick={() => onChange(item.key)}
-              className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
+              className={`flex min-w-max items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition xl:min-w-0 ${
                 isActive
                   ? "bg-white text-slate-950 shadow-lg shadow-black/20"
                   : "bg-white/5 text-slate-200 hover:bg-white/10"

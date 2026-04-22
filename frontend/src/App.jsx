@@ -119,13 +119,13 @@ export default function App() {
   };
 
   return (
-    <main className="min-h-screen text-slate-900 lg:flex">
+    <main className="min-h-screen text-slate-900 xl:flex">
       <Sidebar active={activePage} onChange={setActivePage} />
 
-      <section className="flex-1 px-4 py-4 lg:px-6 lg:py-6 xl:px-8">
+      <section className="min-w-0 flex-1 px-4 py-4 md:px-6 md:py-6 xl:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-6">
           <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-slate-950 text-white shadow-2xl shadow-slate-300/40">
-            <div className="grid gap-6 p-6 lg:grid-cols-[1.5fr_1fr] lg:p-8">
+            <div className="grid gap-6 p-6 xl:grid-cols-[1.5fr_1fr] xl:p-8">
               <div>
                 <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-sky-200">
                   Live job pipeline
@@ -152,7 +152,7 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3 border-t border-white/10 px-6 py-4 text-sm text-slate-300 lg:px-8">
+            <div className="flex flex-wrap items-center gap-3 border-t border-white/10 px-6 py-4 text-sm text-slate-300 xl:px-8">
               <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 font-medium text-emerald-200">
                 ● Pipeline ready
               </span>

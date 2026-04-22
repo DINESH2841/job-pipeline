@@ -18,11 +18,13 @@ jobs:
       SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
       APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
       APIFY_LINKEDIN_ACTOR: ${{ secrets.APIFY_LINKEDIN_ACTOR }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       GMAIL_USER: ${{ secrets.GMAIL_USER }}
       GMAIL_PASS: ${{ secrets.GMAIL_PASS }}
-      ALERT_RECIPIENTS: ${{ secrets.ALERT_RECIPIENTS || 'dineshsevenni@gmail.com' }}
-      WEBSITE_URL: ${{ secrets.WEBSITE_URL || 'https://dinesh2841.github.io/job-pipeline/' }}
+      ALERT_RECIPIENTS: ${{ secrets.ALERT_RECIPIENTS }}
+      WEBSITE_URL: ${{ secrets.WEBSITE_URL }}
 
     steps:
       - name: Checkout repo
@@ -41,7 +43,7 @@ jobs:
         shell: bash
         run: |
           missing=0
-          for name in SERPAPI_KEY APIFY_TOKEN GOOGLE_SHEET_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_PRIVATE_KEY OPENAI_API_KEY; do
+          for name in SERPAPI_KEY APIFY_TOKEN GOOGLE_SHEET_ID GOOGLE_SERVICE_ACCOUNT_EMAIL GOOGLE_PRIVATE_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY OPENAI_API_KEY; do
             if [ -z "${!name}" ]; then
               echo "::error::Missing required secret: $name"
               missing=1

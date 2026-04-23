@@ -45,6 +45,10 @@ function splitSkillGroups(value, fallback = []) {
     .filter((group) => group.length);
 }
 
+function clean(value) {
+  return String(value || "").trim();
+}
+
 function buildPipeline(prefix, defaults) {
   return {
     name: defaults.name,
@@ -81,9 +85,15 @@ const HARDWARE_DEFAULTS = {
 
 export const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
-  OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || "",
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY || "",
-  OPENAI_MODEL: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+  OPENAI_BASE_URL:
+    clean(process.env.OPENAI_BASE_URL) ||
+    clean(process.env.OPENROUTER_BASE_URL) ||
+    clean(process.env.OPENAI_API_BASE) ||
+    (clean(process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY).startsWith("sk-or-")
+      ? "https://openrouter.ai/api/v1"
+      : ""),
+  OPENAI_API_KEY: clean(process.env.OPENAI_API_KEY) || clean(process.env.OPENROUTER_API_KEY),
+  OPENAI_MODEL: clean(process.env.OPENAI_MODEL) || "gpt-4.1-mini",
   SERPAPI_KEY: process.env.SERPAPI_KEY || "",
   APIFY_TOKEN: process.env.APIFY_TOKEN || "",
   APIFY_LINKEDIN_ACTOR:

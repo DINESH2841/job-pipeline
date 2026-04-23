@@ -2,9 +2,19 @@ import OpenAI from "openai";
 import { env } from "../config/env.js";
 import { safeJsonParse } from "../utils/helpers.js";
 
+const isOpenRouter = /openrouter\.ai/i.test(env.OPENAI_BASE_URL);
+
 const client = new OpenAI({
   apiKey: env.OPENAI_API_KEY,
-  ...(env.OPENAI_BASE_URL ? { baseURL: env.OPENAI_BASE_URL } : {})
+  ...(env.OPENAI_BASE_URL ? { baseURL: env.OPENAI_BASE_URL } : {}),
+  ...(isOpenRouter
+    ? {
+        defaultHeaders: {
+          "HTTP-Referer": env.WEBSITE_URL || "https://dinesh2841.github.io/job-pipeline/",
+          "X-Title": "job-pipeline"
+        }
+      }
+    : {})
 });
 
 const MASTER_FILTER_PROMPT = `You are a strict job filtering and scoring engine.
